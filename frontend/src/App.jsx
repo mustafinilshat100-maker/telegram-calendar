@@ -63,16 +63,26 @@ function App() {
 
   const fetchUser = async () => {
     try {
+      setLoading(true)
       const response = await fetch(`${API_URL}/api/user`, {
         headers: { 'X-Telegram-Init-Data': initData }
       })
       
-      if (!response.ok) throw new Error('Failed to fetch user')
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Не авторизован — показываем ошибку но не загрузку
+          setError('Ошибка авторизации Telegram. Попробуйте обновить страницу.')
+          setLoading(false)
+          return
+        }
+        throw new Error('Failed to fetch user')
+      }
       
       const data = await response.json()
       setUser(data)
     } catch (err) {
       setError(err.message)
+      setLoading(false)
     }
   }
 
