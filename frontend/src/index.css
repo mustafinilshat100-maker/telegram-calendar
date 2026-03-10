@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: 'JetBrains Mono', monospace;
+  background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #1a1a25 100%);
+  background-attachment: fixed;
+  color: #e2e8f0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Стили для календаря */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: 2px solid transparent;
+}
+
+.calendar-day:hover:not(.disabled):not(.past) {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+}
+
+.calendar-day.open {
+  background: rgba(37, 37, 53, 0.8);
+  border: 2px solid rgba(6, 182, 212, 0.3);
+  color: #e2e8f0;
+}
+
+.calendar-day.closed {
+  background: rgba(37, 37, 53, 0.8);
+  border: 2px solid #ff3b3b;
+  color: #e2e8f0;
+}
+
+.calendar-day.closed::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  background: #ff3b3b;
+  border-radius: 50%;
+}
+
+.calendar-day.past {
+  background: rgba(37, 37, 53, 0.3);
+  color: #64748b;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.calendar-day.disabled {
+  background: transparent;
+  color: #475569;
+  cursor: default;
+  border: none;
+}
+
+.calendar-day.today {
+  box-shadow: 0 0 0 2px #06b6d4;
+}
+
+/* Индикатор загрузки */
+.loader {
+  border: 3px solid rgba(37, 37, 53, 0.5);
+  border-top: 3px solid #06b6d4;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Анимация появления */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Скроллбар */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #252535;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+/* Tailwind dark colors */
+@layer components {
+  .dark-900 {
+    @apply bg-[#0a0a0f];
+  }
+  .dark-800 {
+    @apply bg-[#12121a];
+  }
+  .dark-700 {
+    @apply bg-[#1a1a25];
+  }
+  .dark-600 {
+    @apply bg-[#252535];
+  }
+}
