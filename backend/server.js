@@ -242,6 +242,48 @@ app.get('/api/user', authMiddleware, (req, res) => {
   });
 });
 
+// Добавить администратора (только OWNER)
+app.post('/api/admin/add', authMiddleware, requireOwner, (req, res) => {
+  const { telegramId } = req.body;
+  
+  if (!telegramId) {
+    return res.status(400).json({ error: 'Telegram ID required' });
+  }
+  
+  db.run(
+    'INSERT OR REPLACE INTO users (telegram_id, role) VALUES (?, ?)',
+    [telegramId, 'ADMIN'],
+    (err) => {
+      if (err) {
+        console.error('Add admin error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      res.json({ success: true, message: 'Admin added' });
+    }
+  );
+});
+
+// Удалить администратора (только OWNER)
+app.post('/api/admin/remove', authMiddleware, requireOwner, (req, res) => {
+  const { telegramId } = req.body;
+  
+  if (!telegramId) {
+    return res.status(400).json({ error: 'Telegram ID required' });
+  }
+  
+  db.run(
+    "UPDATE users SET role = 'VIEWER' WHERE telegram_id = ? AND role = 'ADMIN'",
+    [telegramId],
+    (err) => {
+      if (err) {
+        console.error('Remove admin error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      res.json({ success: true, message: 'Admin removed' });
+    }
+  );
+});
+
 // Инициализация владельца
 app.post('/api/init-owner', (req, res) => {
   const { telegramId, secret } = req.body;
@@ -259,6 +301,34 @@ app.post('/api/init-owner', (req, res) => {
         return res.status(500).json({ error: 'Internal server error' });
       }
       res.json({ success: true, message: 'Owner initialized' });
+    }
+  );
+});
+
+// Получить настройки
+app.get('/api/settings', authMiddleware, (req, res) => {
+  db.get('SELECT background_image FROM settings LIMIT 1', (err, row) => {
+    if (err) {
+      console.error('Get settings error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+    res.json({ backgroundImage: row?.background_image || null });
+  });
+});
+
+// Обновить фон (только OWNER)
+app.post('/api/settings/background', authMiddleware, requireOwner, (req, res) => {
+  const { backgroundImage } = req.body;
+  
+  db.run(
+    'INSERT OR REPLACE INTO settings (id, background_image, updated_at) VALUES (1, ?, datetime("now"))',
+    [backgroundImage],
+    (err) => {
+      if (err) {
+        console.error('Update background error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+      res.json({ success: true, backgroundImage });
     }
   );
 });
