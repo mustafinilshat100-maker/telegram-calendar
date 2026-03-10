@@ -1,20 +1,28 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
-import timezone from 'dayjs/plugin/timezone'
-import 'dayjs/locale/ru'
 
-dayjs.extend(utc)
-dayjs.extend(timezone)
-dayjs.locale('ru')
-dayjs.tz.setDefault('Europe/Moscow')
+// Московское время (UTC+3) без внешних зависимостей
+const getMoscowDate = () => {
+  const now = new Date()
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60 * 1000)
+  return new Date(utc + (3 * 60 * 60 * 1000))
+}
+
+const formatDate = (date) => {
+  return date.toISOString().split('T')[0]
+}
+
+const getMonthName = (month) => {
+  const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+  return months[month]
+}
 
 // API URL - используем относительный путь для работы везде
 const API_URL = ''
 
 function App() {
   const [user, setUser] = useState(null)
-  const [currentDate, setCurrentDate] = useState(dayjs.tz('Europe/Moscow'))
+  const [currentDate, setCurrentDate] = useState(getMoscowDate())
   const [closedDates, setClosedDates] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -63,9 +71,7 @@ function App() {
       
       const data = await response.json()
       setUser(data)
-      console.log('✓ User loaded:', data.role)
     } catch (err) {
-      console.error('✗ User fetch error:', err)
       setError(err.message)
     }
   }
@@ -73,8 +79,8 @@ function App() {
   const fetchCalendar = async () => {
     try {
       setLoading(true)
-      const year = currentDate.year()
-      const month = currentDate.month() + 1
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
       
       const response = await fetch(
         `${API_URL}/api/calendar?year=${year}&month=${month}`,
@@ -86,9 +92,7 @@ function App() {
       const data = await response.json()
       setClosedDates(data.closedDates.map(d => d.date))
       setLoading(false)
-      console.log('✓ Calendar loaded:', data.closedDates.length, 'closed dates')
     } catch (err) {
-      console.error('✗ Calendar fetch error:', err)
       setError(err.message)
       setLoading(false)
     }
@@ -103,19 +107,16 @@ function App() {
       if (response.ok) {
         const data = await response.json()
         setBackgroundImage(data.backgroundImage)
-        console.log('✓ Settings loaded')
       }
     } catch (err) {
-      console.error('✗ Settings fetch error:', err)
+      console.error('Failed to fetch settings:', err)
     }
   }
 
-  const toggleDate = async (date) => {
+  const toggleDate = async (dateStr) => {
     if (!canManageDates()) return
     
     try {
-      const dateStr = date.format('YYYY-MM-DD')
-      
       const response = await fetch(`${API_URL}/api/calendar/toggle`, {
         method: 'POST',
         headers: {
@@ -131,13 +132,10 @@ function App() {
       
       if (data.status === 'closed') {
         setClosedDates(prev => [...prev, dateStr])
-        console.log('✓ Date closed:', dateStr)
       } else {
         setClosedDates(prev => prev.filter(d => d !== dateStr))
-        console.log('✓ Date opened:', dateStr)
       }
     } catch (err) {
-      console.error('✗ Toggle date error:', err)
       setError(err.message)
     }
   }
@@ -147,11 +145,19 @@ function App() {
   }
 
   const prevMonth = () => {
-    setCurrentDate(prev => prev.subtract(1, 'month'))
+    setCurrentDate(prev => {
+      const newDate = new Date(prev)
+      newDate.setMonth(newDate.getMonth() - 1)
+      return newDate
+    })
   }
 
   const nextMonth = () => {
-    setCurrentDate(prev => prev.add(1, 'month'))
+    setCurrentDate(prev => {
+      const newDate = new Date(prev)
+      newDate.setMonth(newDate.getMonth() + 1)
+      return newDate
+    })
   }
 
   // Перезагрузка календаря при смене месяца
@@ -160,31 +166,38 @@ function App() {
   }, [currentDate])
 
   const generateCalendarDays = () => {
-    const startOfMonth = currentDate.startOf('month')
-    const endOfMonth = currentDate.endOf('month')
-    const startDay = startOfMonth.day() || 7
-    const daysInMonth = endOfMonth.date()
-    const today = dayjs.tz('Europe/Moscow').startOf('day')
+    const year = currentDate.getFullYear()
+    const month = currentDate.getMonth()
+    
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const daysInMonth = lastDay.getDate()
+    
+    // День недели первого числа (0 = вс, 1 = пн, ...)
+    let startDayOfWeek = firstDay.getDay()
+    if (startDayOfWeek === 0) startDayOfWeek = 7 // Воскресенье = 7
+    
+    const today = new Date()
+    const todayStr = formatDate(today)
     
     const days = []
     
     // Пустые дни в начале
-    for (let i = 1; i < startDay; i++) {
+    for (let i = 1; i < startDayOfWeek; i++) {
       days.push({ type: 'empty', key: `empty-${i}` })
     }
     
     // Дни месяца
     for (let i = 1; i <= daysInMonth; i++) {
-      const date = currentDate.date(i)
-      const dateStr = date.format('YYYY-MM-DD')
-      const isPast = date.isBefore(today)
+      const date = new Date(year, month, i)
+      const dateStr = formatDate(date)
+      const isPast = date < new Date(today.setHours(0,0,0,0))
       const isClosed = closedDates.includes(dateStr)
-      const isToday = date.isSame(today, 'day')
+      const isToday = dateStr === todayStr
       
       days.push({
         type: 'day',
         day: i,
-        date,
         dateStr,
         isPast,
         isClosed,
@@ -200,7 +213,7 @@ function App() {
 
   if (loading && !user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-dark-900 via-dark-800 to-dark-700">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="loader mx-auto mb-4"></div>
           <p className="text-gray-400">Загрузка...</p>
@@ -217,25 +230,22 @@ function App() {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'
-      } : {
-        background: 'linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #1a1a25 100%)',
-        backgroundAttachment: 'fixed'
-      }}
+      } : {}}
     >
       <div className="max-w-md mx-auto">
         {/* Заголовок */}
         <div className="text-center mb-6 animate-fade-in">
           <h1 className="text-2xl font-bold text-white mb-2">Календарь</h1>
           <p className="text-sm text-gray-400">
-            {currentDate.format('MMMM YYYY')}
+            {getMonthName(currentDate.getMonth())} {currentDate.getFullYear()}
           </p>
           
           {user && (
             <div className="mt-2 text-xs">
               <span className="px-2 py-1 rounded bg-dark-700 text-gray-300">
-                {user.role === 'OWNER' && '👑 Владелец'}
-                {user.role === 'ADMIN' && '⚙️ Администратор'}
-                {user.role === 'VIEWER' && '👁️ Просмотр'}
+                {user.role === 'OWNER' && 'Владелец'}
+                {user.role === 'ADMIN' && 'Администратор'}
+                {user.role === 'VIEWER' && 'Просмотр'}
               </span>
             </div>
           )}
@@ -246,23 +256,21 @@ function App() {
           <button
             onClick={prevMonth}
             className="p-3 rounded-full bg-dark-700 hover:bg-dark-600 transition-all hover:scale-110"
-            title="Предыдущий месяц"
           >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           
           <span className="text-lg font-semibold text-white">
-            {currentDate.format('MMMM YYYY')}
+            {getMonthName(currentDate.getMonth())} {currentDate.getFullYear()}
           </span>
           
           <button
             onClick={nextMonth}
             className="p-3 rounded-full bg-dark-700 hover:bg-dark-600 transition-all hover:scale-110"
-            title="Следующий месяц"
           >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -271,7 +279,7 @@ function App() {
         {/* Ошибка */}
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-500/30 text-red-400 text-sm">
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -306,7 +314,7 @@ function App() {
             return (
               <button
                 key={item.key}
-                onClick={() => !item.isPast && toggleDate(item.date)}
+                onClick={() => !item.isPast && toggleDate(item.dateStr)}
                 disabled={item.isPast || !canManageDates()}
                 className={`
                   calendar-day
@@ -315,7 +323,6 @@ function App() {
                   ${item.isToday ? 'today' : ''}
                   ${canManageDates() && !item.isPast ? 'cursor-pointer' : 'cursor-default'}
                 `}
-                title={item.isPast ? 'Прошедшая дата' : canManageDates() ? 'Нажмите для переключения' : 'Нет доступа'}
               >
                 {item.day}
               </button>
@@ -330,7 +337,7 @@ function App() {
           ) : (
             <p>У вас доступ только для просмотра</p>
           )}
-          <p className="mt-1">🕐 Московское время (MSK)</p>
+          <p className="mt-1">Московское время (MSK)</p>
         </div>
       </div>
     </div>
