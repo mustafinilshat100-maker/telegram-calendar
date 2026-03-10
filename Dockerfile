@@ -3,10 +3,12 @@
 # Stage 1: Build frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
+# Инвалидация кэша при изменении кода
+ARG CACHE_BUST=1
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
-RUN npm run build
+RUN echo "Building frontend v1.0.1..." && npm run build
 
 # Stage 2: Setup backend
 FROM node:20-alpine
