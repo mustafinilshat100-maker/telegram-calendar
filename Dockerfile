@@ -1,10 +1,10 @@
-# Multi-stage build для Railway
+# Multi-stage build для Railway с SQLite
 
 # Stage 1: Build frontend
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
@@ -12,12 +12,12 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Установка зависимостей для sqlite3
+RUN apk add --no-cache python3 make g++
 
 # Copy backend files
 COPY backend/package*.json ./backend/
-RUN cd backend && npm install --production --legacy-peer-deps
+RUN cd backend && npm install
 
 # Copy backend source
 COPY backend/ ./backend/
@@ -33,6 +33,5 @@ ENV PORT=3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
-# Start with dumb-init to handle signals properly
-ENTRYPOINT ["/sbin/dumb-init", "--"]
+# Start
 CMD ["node", "backend/server.js"]
